@@ -1,3 +1,7 @@
-name = "renewDomain"
-main = "worker.js"
-compatibility_date = "2026-04-01"
+name = "renew-domain"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# 定时任务（每200天执行一次，按需求调整 cron 表达式）
+[triggers]
+crons = ["0 0 1 */6 *"]
