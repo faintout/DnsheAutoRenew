@@ -1,4 +1,4 @@
-name = "renew-domain"
+name = "renew"
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
