@@ -1,8 +1,8 @@
 const API_HOST = "https://api005.dnshe.com";
 
 // --------------- 配置 ---------------
-const VALID_DAYS = 365;        // 有效期 365 天
-const RENEW_BEFORE_DAYS = 180; // 剩余 ≤180 天才续期
+const VALID_DAYS = 365;        // 有效期固定 365 天
+const RENEW_BEFORE_DAYS = 180; // 只有 ≤180 天才续期
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default {
@@ -44,25 +44,23 @@ export default {
                   continue;
                 }
 
-                // =============== 修复：精确取整，不再多算1天 ===============
+                // ====================== 绝对正确计算 ======================
                 const now = new Date();
-                const elapsedMs = now - updatedAt;
-                const elapsedDays = Math.floor(elapsedMs / DAY_MS); // 向下取整
+                const elapsedDays = Math.floor((now - updatedAt) / DAY_MS);
                 const remainingDays = VALID_DAYS - elapsedDays;
 
-                send(`📅 已过 ${elapsedDays} 天 | 剩余 ${remainingDays} 天`);
+                // 强制封顶：最多就是 365 天
+                const realRemaining = Math.min(remainingDays, VALID_DAYS);
 
-                if (remainingDays > RENEW_BEFORE_DAYS) {
-                  send(`✅ 剩余 ${remainingDays} 天 > ${RENEW_BEFORE_DAYS}，无需续期`);
+                send(`📅 剩余 ${realRemaining} 天`);
+
+                if (realRemaining > RENEW_BEFORE_DAYS) {
+                  send(`✅ 剩余 ${realRemaining} 天，无需续期`);
                   await sleep(300);
                   continue;
                 }
 
-                if (remainingDays <= 0) {
-                  send(`⚠️ ${fullDomain} 已过期，立即续期`);
-                } else {
-                  send(`🔍 剩余 ${remainingDays} 天，符合条件，开始续期`);
-                }
+                send(`🔍 剩余 ${realRemaining} 天，执行续期`);
 
                 const res = await renew(env, id);
                 if (res?.success === true) {
@@ -100,7 +98,6 @@ export default {
   },
 };
 
-// 定时任务
 async function autoRenewAll(env, log) {
   if (!env.API_KEY || !env.API_SECRET) {
     log("❌ API_KEY / API_SECRET 未配置");
@@ -128,23 +125,19 @@ async function autoRenewAll(env, log) {
     }
 
     const now = new Date();
-    const elapsedMs = now - updatedAt;
-    const elapsedDays = Math.floor(elapsedMs / DAY_MS);
+    const elapsedDays = Math.floor((now - updatedAt) / DAY_MS);
     const remainingDays = VALID_DAYS - elapsedDays;
+    const realRemaining = Math.min(remainingDays, VALID_DAYS);
 
-    log(`📅 已过 ${elapsedDays} 天 | 剩余 ${remainingDays} 天`);
+    log(`📅 剩余 ${realRemaining} 天`);
 
-    if (remainingDays > RENEW_BEFORE_DAYS) {
-      log(`✅ 剩余 ${remainingDays} 天 > ${RENEW_BEFORE_DAYS}，无需续期`);
+    if (realRemaining > RENEW_BEFORE_DAYS) {
+      log(`✅ 剩余 ${realRemaining} 天，无需续期`);
       await sleep(300);
       continue;
     }
 
-    if (remainingDays <= 0) {
-      log(`⚠️ ${fullDomain} 已过期，立即续期`);
-    } else {
-      log(`🔍 剩余 ${remainingDays} 天，执行续期`);
-    }
+    log(`🔍 剩余 ${realRemaining} 天，执行续期`);
 
     const res = await renew(env, id);
     if (res?.success === true) {
@@ -156,7 +149,6 @@ async function autoRenewAll(env, log) {
   }
 }
 
-// 获取域名列表
 async function listDomains(env, log) {
   try {
     const r = await fetch(`${API_HOST}/index.php?m=domain_hub&endpoint=subdomains&action=list`, {
@@ -184,7 +176,6 @@ async function listDomains(env, log) {
   }
 }
 
-// 续期
 async function renew(env, id) {
   try {
     const r = await fetch(`${API_HOST}/index.php?m=domain_hub&endpoint=subdomains&action=renew`, {
@@ -208,7 +199,6 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-// 页面
 function pageHtml() {
   return `
 <!DOCTYPE html>
