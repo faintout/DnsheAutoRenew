@@ -50,18 +50,14 @@ export default {
                 const now = new Date();
                 const elapsedDays = Math.floor((now - updatedAtUtc) / DAY_MS);
                 const remainingDays = VALID_DAYS - elapsedDays;
-                const realRemaining = Math.min(remainingDays, VALID_DAYS);
-
-                send(`📅 剩余 ${realRemaining} 天`);
+                const realRemaining = remainingDays;
 
                 if (realRemaining > RENEW_BEFORE_DAYS) {
                   send(`✅ 剩余 ${realRemaining} 天，无需续期`);
                   await sleep(300);
                   continue;
                 }
-
-                send(`🔍 剩余 ${realRemaining} 天，执行续期`);
-
+                
                 const res = await renew(env, id);
                 if (res?.success === true) {
                   send(`✅ 续期成功: ${fullDomain}`);
@@ -109,7 +105,7 @@ async function autoRenewAll(env, log) {
     log("无活跃子域名");
     return;
   }
-  log(`找到 ${list.length} 个域名，仅剩余 ≤${RENEW_BEFORE_DAYS} 天续期`);
+  log(`找到 ${list.length} 个域名`);
 
   for (const item of list) {
     const id = item.id;
@@ -130,17 +126,13 @@ async function autoRenewAll(env, log) {
     const now = new Date();
     const elapsedDays = Math.floor((now - updatedAtUtc) / DAY_MS);
     const remainingDays = VALID_DAYS - elapsedDays;
-    const realRemaining = Math.min(remainingDays, VALID_DAYS);
-
-    log(`📅 剩余 ${realRemaining} 天`);
+    const realRemaining = remainingDays; 
 
     if (realRemaining > RENEW_BEFORE_DAYS) {
       log(`✅ 剩余 ${realRemaining} 天，无需续期`);
       await sleep(300);
       continue;
     }
-
-    log(`🔍 剩余 ${realRemaining} 天，执行续期`);
 
     const res = await renew(env, id);
     if (res?.success === true) {
@@ -227,7 +219,7 @@ h1{text-align:center;font-size:24px;color:#1e293b;margin-bottom:24px}
 </head>
 <body>
 <div class="container">
-  <h1>DNSHE 自动续期（剩余≤180天续期）</h1>
+  <h1>DNSHE 自动续期</h1>
   <button class="btn-run" id="btn" onclick="startRun()">开始续期</button>
   <div id="log" class="log-card">等待执行...</div>
 </div>
