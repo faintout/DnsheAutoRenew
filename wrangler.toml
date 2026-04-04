@@ -2,6 +2,10 @@ name = "renew-domain"
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
-# 定时任务（每200天执行一次，按需求调整 cron 表达式）
+[vars]
+API_KEY = ""
+API_SECRET = ""
+
+# 每 6 个月 1 号 0 点执行（UTC 时间）
 [triggers]
-crons = ["0 0 1 */6 *"]
+crons = [ "0 0 1 */6 *" ]
