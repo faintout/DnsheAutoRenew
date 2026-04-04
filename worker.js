@@ -14,6 +14,12 @@ export default {
             };
 
             try {
+              // 先检查密钥
+              if (!env.API_KEY || !env.API_SECRET) {
+                send("❌ 错误：请在 Workers 环境变量中配置 API_KEY 和 API_SECRET");
+                return;
+              }
+
               const list = await listDomains(env, send);
               if (!list || list.length === 0) {
                 send("无活跃子域名");
@@ -34,6 +40,7 @@ export default {
                 }
                 await sleep(800);
               }
+              send("全部完成");
             } catch (e) {
               send("异常：" + e.message);
             } finally {
@@ -56,13 +63,19 @@ export default {
     });
   },
 
-  // 每 6 个月 1 号 0 点执行
+  // 定时任务
   async scheduled(event, env, ctx) {
     ctx.waitUntil(autoRenewAll(env, console.log));
   },
 };
 
+// 自动续期逻辑
 async function autoRenewAll(env, log) {
+  if (!env.API_KEY || !env.API_SECRET) {
+    log("❌ API_KEY / API_SECRET 未配置");
+    return;
+  }
+
   const list = await listDomains(env, log);
   if (!list || list.length === 0) {
     log("无活跃子域名");
@@ -84,6 +97,7 @@ async function autoRenewAll(env, log) {
   }
 }
 
+// 获取域名列表
 async function listDomains(env, log) {
   try {
     const r = await fetch(`${API_HOST}/index.php?m=domain_hub&endpoint=subdomains&action=list`, {
@@ -91,12 +105,15 @@ async function listDomains(env, log) {
       headers: {
         "X-API-Key": env.API_KEY,
         "X-API-Secret": env.API_SECRET,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       },
     });
+
     if (!r.ok) {
       log(`listDomains HTTP 错误: ${r.status}`);
       return [];
     }
+
     const d = await r.json();
     if (!d.success) {
       log(`listDomains 失败: ${d.message}`);
@@ -110,6 +127,7 @@ async function listDomains(env, log) {
   }
 }
 
+// 续期单个域名
 async function renew(env, id) {
   try {
     const r = await fetch(`${API_HOST}/index.php?m=domain_hub&endpoint=subdomains&action=renew`, {
@@ -118,10 +136,14 @@ async function renew(env, id) {
         "X-API-Key": env.API_KEY,
         "X-API-Secret": env.API_SECRET,
         "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       },
       body: JSON.stringify({ subdomain_id: id }),
     });
-    if (!r.ok) return { success: false, message: `HTTP ${r.status}` };
+
+    if (!r.ok) {
+      return { success: false, message: `HTTP ${r.status}` };
+    }
     return await r.json();
   } catch (e) {
     return { success: false, message: String(e) };
@@ -132,7 +154,7 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-// 页面 HTML
+// 前端页面
 function pageHtml() {
   return `
 <!DOCTYPE html>
@@ -165,7 +187,36 @@ h1{text-align:center;font-size:24px;color:#1e293b;margin-bottom:24px}
 const btn=document.getElementById('btn');
 const logEl=document.getElementById('log');
 let es=null;
-function startRun(){if(es)es.close();btn.disabled=true;btn.textContent='执行中...';logEl.innerHTML='';es=new EventSource('/run');es.onmessage=e=>{const line=JSON.parse(e.data);const txt=line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');if(line.includes('✅')){logEl.innerHTML+='<span class="log-success">'+txt+'</span><br>'}else if(line.includes('❌')||line.includes('失败')||line.includes('错误')){logEl.innerHTML+='<span class="log-error">'+txt+'</span><br>'}else{logEl.innerHTML+='<span class="log-normal">'+txt+'</span><br>'}logEl.scrollTop=logEl.scrollHeight;if(line.includes('全部完成')||line.includes('无活跃子域名')){es.close();btn.disabled=false;btn.textContent='开始续期'}};es.onerror=()=>{es.close();btn.disabled=false;btn.textContent='开始续期'}}
+function startRun(){
+  if(es)es.close();
+  btn.disabled=true;
+  btn.textContent='执行中...';
+  logEl.innerHTML='';
+  es=new EventSource('/run');
+  es.onmessage=e=>{
+    const line=JSON.parse(e.data);
+    const txt=line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if(line.includes('✅')){
+      logEl.innerHTML+='<span class="log-success">'+txt+'</span><br>'
+    }else if(line.includes('❌')||line.includes('失败')||line.includes('错误')||line.includes('异常')){
+      logEl.innerHTML+='<span class="log-error">'+txt+'</span><br>'
+    }else{
+      logEl.innerHTML+='<span class="log-normal">'+txt+'</span><br>'
+    }
+    logEl.scrollTop=logEl.scrollHeight;
+    if(line.includes('全部完成')||line.includes('无活跃子域名')||line.includes('配置')){
+      es.close();
+      btn.disabled=false;
+      btn.textContent='开始续期';
+    }
+  };
+  es.onerror=err=>{
+    console.error(err);
+    es.close();
+    btn.disabled=false;
+    btn.textContent='开始续期';
+  };
+}
 </script>
 </body>
 </html>
