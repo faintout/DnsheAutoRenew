@@ -1,4 +1,4 @@
-name = "renew"
+name = "dnshe-auto-renew"
 main = "src/worker.js"
 compatibility_date = "2026-01-01"
 
